@@ -7,7 +7,7 @@
 [![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0%2B-EE4C2C.svg)](https://pytorch.org/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-> Official implementation of the NeurIPS submission *“MPD²-Router: Hierarchical Constraint-Aware Multi-Expert Learning-to-Defer for Glaucoma Classification.”*
+> Official implementation *“MPD²-Router: Hierarchical Constraint-Aware Multi-Expert Learning-to-Defer for Glaucoma Classification.”*
 
 ---
 
@@ -96,7 +96,7 @@ via the standard penalty `λ · g + ½ μ · max(0, g)²` on each constraint, wi
        │  hidden states, logits   │──► MSP / Energy / kNN /
        └──────────────┬───────────┘     ViM / Mahalanobis  ───┐
                       │                                       │
-                      │   vim_risk_z, maha_risk, quality_risk │
+                      │             vim_risk_z,  quality_risk │
                       ▼ ◄─────────────────────────────────────┘
        ┌──────────────────────────┐
        │  data/final_dataset3.csv │
