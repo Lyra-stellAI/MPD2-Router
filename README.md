@@ -383,13 +383,6 @@ Defaults from `m2p.adaptive_hpo.run_hpo`. Use these as the starting point unless
 If you use this code or build on the methodology, please cite:
 
 ```bibtex
-@inproceedings{mpd2router2026,
-  title     = {MPD\textsuperscript{2}-Router: Hierarchical Constraint-Aware
-               Multi-Expert Learning-to-Defer for Glaucoma Classification},
-  author    = {The MPD\textsuperscript{2}-Router Authors},
-  booktitle = {Advances in Neural Information Processing Systems},
-  year      = {2026},
-}
 ```
 
 A `CITATION.cff` is provided for GitHub's "Cite this repository" link.
