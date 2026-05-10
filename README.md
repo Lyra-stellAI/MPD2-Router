@@ -229,8 +229,8 @@ Outputs:
 | Dataset | Total | Train | Val | Test | Glaucoma rate | Role |
 |---|---:|---:|---:|---:|---:|---|
 | **REFUGE**  | 1200 | 400 | 400 | 400 | 10.0 % | In-distribution reference cohort |
-| **CHAKSU**  | 1345 | 686 | 323 | 336 | 14.0 % | Out-of-distribution |
-| **ORIGA**   |  650 | 325 | 162 | 163 | 25.8 % | Out-of-distribution |
+| **CHAKSU**  | 1345 | 686 | 323 | 336 | 14.0 % | Near out-of-distribution |
+| **ORIGA**   |  650 | 325 | 162 | 163 | 25.8 % | Far out-of-distribution |
 | **Total**   | **3195** | 1411 | 885 | 899 | 14.9 % | |
 
 Twelve human experts annotate subsets of the data:
