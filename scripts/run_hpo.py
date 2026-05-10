@@ -10,7 +10,7 @@ Example
 .. code-block:: bash
 
     python scripts/run_hpo.py \
-        --csv grouping_output/final_dataset3_grouped.csv \
+        --csv grouping_output/data.csv \
         --n_trials 80 \
         --storage sqlite:///hpo.db \
         --ledger hpo_ledger.jsonl
