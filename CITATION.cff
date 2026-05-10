@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite the accompanying NeurIPS submission."
+title: "MPD²-Router: Hierarchical Constraint-Aware Multi-Expert Learning-to-Defer for Glaucoma Classification"
+type: software
+version: "0.1.0"
+date-released: "2026-05-10"
+license: MIT
+repository-code: "https://github.com/Lyra-stellAI/M2P"
+authors:
+  - family-names: "MPD2-Router Authors"
+    name-particle: "The"
+preferred-citation:
+  type: conference-paper
+  title: "MPD²-Router: Hierarchical Constraint-Aware Multi-Expert Learning-to-Defer for Glaucoma Classification"
+  year: 2026
+  collection-title: "Advances in Neural Information Processing Systems (NeurIPS)"
+  authors:
+    - family-names: "MPD2-Router Authors"
+      name-particle: "The"

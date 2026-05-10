@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name            = "m2p"
+version         = "0.1.0"
+description     = "MPD2-Router: hierarchical, constraint-aware multi-expert learning-to-defer for glaucoma classification."
+readme          = "README.md"
+requires-python = ">=3.10"
+license         = { file = "LICENSE" }
+keywords        = [
+    "learning-to-defer", "multi-expert", "glaucoma",
+    "out-of-distribution", "medical-imaging", "neurips",
+]
+classifiers     = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+    "torch>=2.0",
+    "transformers>=4.36",
+    "optuna>=3.4",
+    "Pillow>=10.0",
+    "opencv-python>=4.8",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+yaml = ["pyyaml>=6.0"]
+dev  = [
+    "pytest>=7",
+    "pytest-cov>=4",
+    "ruff>=0.4",
+]
+docs = [
+    "matplotlib>=3.7",
+    "jupyter",
+]
+
+[project.scripts]
+m2p-features  = "scripts.extract_features:main"
+m2p-grouping  = "scripts.run_grouping:grouping_main"
+m2p-hpo       = "scripts.run_hpo:main"
+m2p-train     = "scripts.train_router:main"
+
+[project.urls]
+Homepage = "https://github.com/Lyra-stellAI/M2P"
+Issues   = "https://github.com/Lyra-stellAI/M2P/issues"
+
+[tool.setuptools.packages.find]
+where   = ["src"]
+include = ["m2p*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = ["E501", "E741"]

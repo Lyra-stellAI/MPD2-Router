@@ -31,5 +31,7 @@ hpo_ledger.jsonl
 hpo.db
 runs/
 checkpoints/
+*.pt
+data/features/
 *.npy
 !data/*.npy
