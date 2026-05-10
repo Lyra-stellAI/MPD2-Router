@@ -2,30 +2,37 @@
 Autonomous Adaptive Hyperparameter Optimization for MPD²-Router
 ================================================================
 
-Multi-objective Bayesian optimization with constraint-aware early stopping,
-adaptive search space pruning, and population-based warm-starting.
+This module is the **single, consolidated** HPO driver for the MPD²-Router.
+It supersedes and merges two earlier drafts:
+
+* ``adaptive_hpo_v2.py``           — v2 with per-anchor clip caps;
+* ``adaptive_hpo_geometric_clip.py`` — clip-by-(``ceiling``, ``slack``) variant
+                                       and an alternative selection score.
+
+Both lineages contributed to the present design; the search space, scoring,
+and selection helpers below expose every option that either ancestor used.
 
 Design principles
 -----------------
-1. **Multi-objective**: jointly optimise clinical cost and routing quality
-   (MCC, AUPRC, deferral constraint satisfaction) via scalarized Chebyshev
-   aggregation with an adaptive reference point.
-2. **Constraint-aware**: treat deferral-rate violations as hard constraints
-   using augmented Lagrangian inside the surrogate objective.  Model
-   selection also penalises constraint violations via a tunable weight
-   (``selection_violation_weight``).
-3. **Adaptive pruning**: Hyperband-style successive halving on the epoch
-   budget to kill bad configs early.
-4. **Geometric clip caps**: anti-collapse clipping derived from the
+1. **Multi-objective.** Jointly optimise clinical cost and routing quality
+   (MCC, AUPRC, deferral constraint satisfaction) via an augmented Chebyshev
+   scalarisation with an adaptive utopia point.
+2. **Constraint-aware.** Treat deferral-rate violations as hard constraints
+   using an augmented Lagrangian inside the surrogate objective. Model
+   selection penalises constraint violations via the optional
+   ``selection_score_mode='weighted_violation'`` strategy below.
+3. **Adaptive pruning.** Hyperband successive halving on the epoch budget to
+   kill bad configs early.
+4. **Geometric clip caps.** Anti-collapse clipping derived from the
    truncated-geometric rank prior, controlled by two intuitive knobs
-   (``clip_ceiling``, ``clip_slack``) instead of per-anchor-point values.
-5. **Reproducibility**: every trial logs the full materialised config +
-   seed + metrics to a structured JSON ledger for post-hoc analysis.
+   (``clip_ceiling``, ``clip_slack``) instead of per-anchor values.
+5. **Reproducibility.** Every trial logs the full materialised config + seed
+   + metrics to a structured JSON ledger for post-hoc analysis.
 
 Usage::
 
-    from adaptive_hpo import run_hpo
-    best_cfg, study = run_hpo(df, expert_cols, ...)
+    from m2p.adaptive_hpo import run_hpo_from_notebook
+    best_cfg, study = run_hpo_from_notebook(df, ...)
 
 Requires: optuna >= 3.0, torch, numpy, pandas, scikit-learn
 """
@@ -42,13 +49,25 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import optuna
-from optuna.samplers import TPESampler
 import pandas as pd
 import torch
 from optuna.pruners import HyperbandPruner
 from optuna.samplers import TPESampler
 
 logger = logging.getLogger(__name__)
+
+
+# ────────────────────────────────────────────────────────────────────
+# §0  Selection-score modes (merged from the two ancestor variants)
+# ────────────────────────────────────────────────────────────────────
+
+#: Default mode used by the ``adaptive_hpo_v2`` lineage. Treats the held-out
+#: clinical cost and total cost symmetrically, ignoring the deferral budget.
+SELECTION_MODE_AVG = "avg_clinical_total"
+
+#: Mode used by the ``adaptive_hpo_geometric_clip`` lineage. Penalises
+#: deferral-budget violations with a tunable ``selection_violation_weight``.
+SELECTION_MODE_WEIGHTED = "weighted_violation"
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -614,16 +633,35 @@ def _to_numpy_1d(x) -> np.ndarray:
 def _selection_score(
     val_results: Dict[str, float],
     violation_weight: float = 10.0,
+    mode: str = SELECTION_MODE_AVG,
 ) -> float:
     """
-    Constraint-aware model-selection score.
-    Combines the base early-stopping score with a weighted penalty for
+    Constraint-aware model-selection score, switchable between the two
+    strategies inherited from the ancestor HPO files.
+
+    * ``mode = "avg_clinical_total"`` (default, inherited from
+      ``adaptive_hpo_v2``) — symmetric mean of the base early-stopping score
+      (``clinical + γ_eval · tier_soft``) and the hard-decision total cost.
+      Stable when the deferral budget is enforced inside the training loop
+      via the augmented Lagrangian.
+
+    * ``mode = "weighted_violation"`` (inherited from
+      ``adaptive_hpo_geometric_clip``) — penalises *any* held-out deferral
+      overshoot directly, i.e. ``es_base + w · max(0, defer_soft − ρ)``.
+      Useful when the AL multipliers are still warming up or when a strict
+      validation-time budget is required.
     """
     es_base = float(val_results.get("es_base", np.inf))
-    total_cost = float(val_results.get("total_cost", np.inf))
-    #es_violation = max(0.0, float(val_results.get("es_violation", 0.0)))
-    #es_base + violation_weight * es_violation
-    return (es_base + total_cost)/2.0
+    if mode == SELECTION_MODE_AVG:
+        total_cost = float(val_results.get("total_cost", np.inf))
+        return (es_base + total_cost) / 2.0
+    if mode == SELECTION_MODE_WEIGHTED:
+        es_violation = max(0.0, float(val_results.get("es_violation", 0.0)))
+        return es_base + violation_weight * es_violation
+    raise ValueError(
+        f"Unknown selection_score_mode {mode!r}. "
+        f"Expected one of {{{SELECTION_MODE_AVG!r}, {SELECTION_MODE_WEIGHTED!r}}}."
+    )
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -663,6 +701,7 @@ class TrialExecutor:
         evaluate_fn,
         seed: int = 42,
         selection_violation_weight: float = 10.0,
+        selection_score_mode: str = SELECTION_MODE_AVG,
     ):
         self.df = df
         self.expert_cols = expert_cols
@@ -679,6 +718,7 @@ class TrialExecutor:
         self.evaluate_fn = evaluate_fn
         self.seed = seed
         self.selection_violation_weight = selection_violation_weight
+        self.selection_score_mode = selection_score_mode
 
     # ----------------------------------------------------------------
 
@@ -858,6 +898,7 @@ class TrialExecutor:
             score = _selection_score(
                 val_results,
                 violation_weight=self.selection_violation_weight,
+                mode=self.selection_score_mode,
             )
 
             # ── Optuna pruning ──────────────────────────────────────
@@ -1091,6 +1132,7 @@ def run_hpo(
     rho_by_k: Optional[Dict[int, float]] = None,
     clip_floor: float = 1e-6,
     selection_violation_weight: float = 10.0,
+    selection_score_mode: str = SELECTION_MODE_AVG,
 ) -> Tuple[Dict[str, Any], optuna.Study]:
     """
     Run the full HPO study.
@@ -1190,6 +1232,7 @@ def run_hpo(
         evaluate_fn=evaluate_fn,
         seed=seed,
         selection_violation_weight=selection_violation_weight,
+        selection_score_mode=selection_score_mode,
     )
 
     utopia_tracker = UtopiaTracker(ema_alpha=0.3)

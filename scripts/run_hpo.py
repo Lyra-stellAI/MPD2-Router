@@ -23,13 +23,11 @@ import argparse
 import pandas as pd
 
 from m2p.adaptive_hpo import print_study_summary, run_hpo_from_notebook
-from m2p.augmented_lagrangian import AugLag
-from m2p.costs import TIER_COST, action_costs, l2d_objective
-from m2p.data import L2DDataset
-from m2p.evaluation import evaluate
-from m2p.losses import combined_routing_loss
-from m2p.models import Router
-from m2p.priors import build_all_priors
+from m2p.router_training import (
+    AugLag, L2DDataset, Router, TIER_COST,
+    action_costs, build_all_priors, combined_routing_loss,
+    evaluate, l2d_objective,
+)
 
 
 def main() -> None:

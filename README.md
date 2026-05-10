@@ -140,20 +140,15 @@ M2P/
 │   └── final_dataset3.csv                 ← 3195-row OOD-scored manifest
 ├── src/m2p/
 │   ├── __init__.py
-│   ├── configs.py                         ← TrainConfig / PriorRegConfig / ALConfig
-│   ├── costs.py                           ← TIER_COST + clinical-cost asymmetry
-│   ├── data.py                            ← L2DDataset
 │   ├── feature_extraction.py              ← frozen Swin-V2 wrapper
 │   ├── ood.py                             ← KNN / ViM / Mahalanobis + logit scores
 │   ├── grouping.py                        ← three-stage hierarchical bucketing
-│   ├── priors.py                          ← global → family → group prior tables
-│   ├── models.py                          ← Router + OVA expert head + struct head
-│   ├── losses.py                          ← GSDP + rank-majorisation JS
-│   ├── augmented_lagrangian.py            ← AugLag dual updates
-│   ├── training.py                        ← train_l2d_multi_expert
-│   ├── evaluation.py                      ← evaluate + reporting
-│   ├── adaptive_hpo.py                    ← current Bayesian HPO (v3)
-│   └── adaptive_hpo_geometric_clip.py     ← prior HPO variant kept for repro
+│   ├── router_training.py                 ← FULL training pipeline in one file:
+│   │                                         configs, costs, dataset, model,
+│   │                                         priors, losses, AugLag,
+│   │                                         training loop, evaluation
+│   └── adaptive_hpo.py                    ← consolidated Bayesian HPO
+│                                            (v2 + geometric_clip lineages)
 ├── scripts/
 │   ├── extract_features.py                ← Swin-V2 feature extraction
 │   ├── run_grouping.py                    ← three-stage bucketing CLI
@@ -279,50 +274,37 @@ The per-row `m_experts` column encodes availability (12-bit), and `m_actions = [
 | `fold_small_groups(...)` | Stage 3 — count + train-fraction folding with audit log. |
 | `group_dataset(...)` | End-to-end driver writing `final_dataset3_grouped.csv`. |
 
-### `m2p.priors`
+### `m2p.router_training`
 
-| Function | Purpose |
+The full router-training pipeline lives in a single ~1700-line file organised
+into nine clearly-labelled sections:
+
+| Section | Symbols |
 |---|---|
-| `_compute_expert_stats(...)` | Beta-smoothed FNR/FPR + badness for a (sub-)cohort. |
-| `_scores_to_prior(...)` | softmax(−τ · badness) with uniform mixing. |
-| `compute_global_prior(...)` / `compute_family_prior(...)` / `compute_group_prior(...)` | Hierarchy primitives. |
-| `build_all_priors(...)` | One-shot driver returning `final_group_table` and metadata. |
+| §1 Configs              | `TrainConfig`, `PriorRegConfig`, `ALConfig` |
+| §2 Costs / objective    | `TIER_COST`, `EXPERT_TIER`, `action_costs`, `expert_clinical_cost`, `ai_expected_clinical_cost`, `per_action_clinical_cost`, `l2d_objective` |
+| §3 Dataset              | `L2DDataset`, `prob1_from_logits_np` |
+| §4 Model                | `StructuralRisk`, `MLPBlock`, `OVAExpertHeadFixed`, `Router` |
+| §5 Hierarchical priors  | `parse_action_mask`, `prepare_expert_mask`, `compute_global_prior`, `compute_family_prior`, `compute_group_prior`, `build_prior_tensor`, `build_all_priors` |
+| §6 Routing losses       | `gsdp_loss`, `rank_majorization_js_loss`, `combined_routing_loss`, `truncated_geometric_prior`, `default_rho_by_k`, helpers |
+| §7 Augmented Lagrangian | `AugLag` |
+| §8 Evaluation           | `evaluate`, `diagnostic_checks`, `print_eval_report`, `print_eval_report_dataset` |
+| §9 Training loop        | `train_l2d_multi_expert` |
 
-### `m2p.models`
-
-| Symbol | Purpose |
-|---|---|
-| `StructuralRisk` | Calibrated 2-D linear head over (vCDR, aCDR). |
-| `MLPBlock` | `Linear → ReLU → LayerNorm → Dropout`. |
-| `OVAExpertHeadFixed` | Two-stage gate-and-allocate expert head with differentiable selection. |
-| `Router` | Three-branch fusion + deferral head + OVA expert head. |
-
-### `m2p.losses`
-
-| Function | Purpose |
-|---|---|
-| `gsdp_loss(...)` | Group-conditional KL/JS against precomputed group priors. |
-| `rank_majorization_js_loss(...)` | Per-sample JS against truncated-geometric rank prior, gated by majorisation. |
-| `combined_routing_loss(...)` | `cfg.w_gsdp · GSDP + cfg.w_rank_js · Rank-JS`. |
-
-### `m2p.augmented_lagrangian`
-
-| Symbol | Purpose |
-|---|---|
-| `AugLag(cfg, device)` | Stateful augmented-Lagrangian helper with non-negative dual variables. |
-
-### `m2p.training` / `m2p.evaluation`
-
-| Symbol | Purpose |
-|---|---|
-| `train_l2d_multi_expert(df, cfg, mcfg, al_cfg)` | End-to-end loop with constraint-aware ES on the val split. |
-| `evaluate(...)` | Held-out eval pass with per-action / per-dataset metrics. |
-| `print_eval_report(...)` / `print_eval_report_dataset(...)` | Reporting tables. |
+Everything is re-exported from the package root, so `from m2p import Router,
+TrainConfig, train_l2d_multi_expert` works without importing the file
+explicitly.
 
 ### `m2p.adaptive_hpo`
 
+This module is the **single, consolidated** HPO driver that supersedes and
+merges the earlier `adaptive_hpo_v2` and `adaptive_hpo_geometric_clip`
+prototypes; both selection-score strategies are exposed via
+`selection_score_mode`.
+
 | Symbol | Purpose |
 |---|---|
+| `SELECTION_MODE_AVG`, `SELECTION_MODE_WEIGHTED` | Two checkpoint-selection strategies merged from the ancestor variants. |
 | `default_rho_by_k`, `clip_max_from_geom`, `build_geometric_clip_anchors` | Geometric anti-collapse cap utilities. |
 | `SearchSpace` | 16-dim declarative search space. |
 | `sample_config`, `params_to_configs` | Sampling + materialisation into `(train_cfg, mcfg, al_cfg)`. |

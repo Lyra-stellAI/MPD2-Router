@@ -24,13 +24,11 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from m2p.configs import ALConfig, PriorRegConfig, TrainConfig
-from m2p.costs import TIER_COST, action_costs
-from m2p.data import L2DDataset
-from m2p.evaluation import (
-    evaluate, print_eval_report, print_eval_report_dataset,
+from m2p.router_training import (
+    ALConfig, L2DDataset, PriorRegConfig, TIER_COST, TrainConfig,
+    action_costs, evaluate, print_eval_report, print_eval_report_dataset,
+    train_l2d_multi_expert,
 )
-from m2p.training import train_l2d_multi_expert
 
 
 def _load_yaml_config(path: str | None):
