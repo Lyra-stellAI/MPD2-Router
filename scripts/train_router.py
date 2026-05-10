@@ -9,7 +9,7 @@ Example
 .. code-block:: bash
 
     python scripts/train_router.py \
-        --csv grouping_output/final_dataset3_grouped.csv \
+        --csv grouping_output/data.csv \
         --config configs/best_hpo.yaml \
         --out_dir runs/mpd2-router-001
 """
