@@ -22,7 +22,7 @@ import argparse
 
 import pandas as pd
 
-from m2p.adaptive_hpo import print_study_summary, run_hpo_from_notebook
+from m2p.adaptive_hpo import print_study_summary, run_hpo
 from m2p.router_training import (
     AugLag, L2DDataset, Router, TIER_COST,
     action_costs, build_all_priors, combined_routing_loss,
@@ -32,19 +32,30 @@ from m2p.router_training import (
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--csv",         required=True)
-    ap.add_argument("--n_trials",    type=int, default=80)
-    ap.add_argument("--seed",        type=int, default=42)
-    ap.add_argument("--storage",     default=None,
+    ap.add_argument("--csv",      required=True)
+    ap.add_argument("--n_trials", type=int, default=80)
+    ap.add_argument("--seed",     type=int, default=42)
+    ap.add_argument("--storage",  default=None,
                     help="Optuna storage URL, e.g. sqlite:///hpo.db")
-    ap.add_argument("--ledger",      default="hpo_ledger.jsonl")
+    ap.add_argument("--ledger",   default="hpo_ledger.jsonl")
     args = ap.parse_args()
 
     df = pd.read_csv(args.csv)
 
-    best_params, study = run_hpo_from_notebook(
+    # Derive expert columns + availability mask from the loaded manifest.
+    expert_cols = [c for c in df.columns if c.startswith("y_") and c != "y_true"]
+    experts     = [c.removeprefix("y_") for c in expert_cols]
+    df["m_experts"] = df.apply(
+        lambda row: [int(not pd.isna(row[c])) for c in expert_cols], axis=1,
+    )
+    df["m_actions"] = df["m_experts"].apply(lambda m: [1] + m)
+
+    best_params, study = run_hpo(
         df=df,
+        expert_cols=expert_cols,
+        experts=experts,
         tier_cost_dict=TIER_COST,
+        n_experts=len(expert_cols),
         action_costs_fn=action_costs,
         build_all_priors_fn=build_all_priors,
         L2DDataset_cls=L2DDataset,
