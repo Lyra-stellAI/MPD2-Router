@@ -1,0 +1,35 @@
+# Byte-compiled / cached
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Packaging / virtualenvs
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project artefacts
+grouping_output/
+hpo_ledger.jsonl
+hpo.db
+runs/
+checkpoints/
+*.npy
+!data/*.npy
